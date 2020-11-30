@@ -14,18 +14,25 @@ def sad(img1, img2):
 	Returns:
 		float -- sum of absolute differences between img1 and shifted img2
 	'''
-	#img2_shift = shift_x(img2, d)
-	#img1 = img1[:img2_shift.shape[0], :img2_shift.shape[1]]
-	return np.sum(np.abs(img1 - img2))
+
+	return np.sum(np.abs(np.subtract(img1,img2, dtype=np.float)))
 
 def get_block(img, y, x, half_window_size):
+	'''
+	Parameters:
+		img1- 3 channel (row, col, colors) numpy array representing a picture
+		x and y- coordinates of center pixel or block
+		half_window_size-- half the size of the desired block
+	Returns:
+		get_block -- gets the block of (half_window_size * 2 + 1) centered at y, x
+	'''
 	row_start = y - half_window_size
 	row_end = y + half_window_size + 1
 
 	col_start = x - half_window_size
 	col_end = x + half_window_size + 1
 
-	return img[row_start:row_end, col_start:col_end]
+	return np.array(img[row_start:row_end, col_start:col_end])
 
 def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_window_size):
 	'''
@@ -48,26 +55,33 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 	best_y = block1_y
 	best_x = block1_x
 
-	for y in range(max(half_window_size, block1_y - search_size), min(img2.shape[0] - half_window_size, block1_y + search_size)):
-		for x in range(max(half_window_size, block1_x - search_size), min(img2.shape[1] - half_window_size, block1_x + search_size)):
+	for y in range(block1_y, block1_y + search_size):
+		for x in range(block1_x, block1_x + search_size):
 
 			block2 = get_block(img2, y, x, half_window_size)
 
-			#if(block1.shape != block2.shape):
-			#	continue
+			if(block1.shape != block2.shape):
+				continue;
 
 			curr_sad = sad(block1, block2)
 			if(curr_sad < best_sad):
 				best_sad=curr_sad
 				best_y = y
 				best_x = x
-	
+				best_block = block2
+
+	'''
+	plt.imshow(block1)
+	plt.show()
+	plt.imshow(best_block)
+	plt.show()
+	'''
 	y_diff_sq = (block1_y - best_y) * (block1_y - best_y)
 	x_diff_sq = (block1_x - best_x) * (block1_x - best_x)
 
 	return math.sqrt(y_diff_sq + x_diff_sq)
 
-def depth_map(left, right, window_size, search_size):
+def depth_map(right, left, window_size, search_size):
 	im_left = cv2.resize(cv2.cvtColor(cv2.imread(left), cv2.COLOR_BGR2GRAY), (300, 244));
 	im_right = cv2.resize(cv2.cvtColor(cv2.imread(right), cv2.COLOR_BGR2GRAY), (300, 244));
 	[h,w] = im_left.shape;
@@ -76,21 +90,24 @@ def depth_map(left, right, window_size, search_size):
 	
 	half_window_size = int(window_size/2);
 
+	print("creating disparity map....")
 	for y in range(half_window_size, h-half_window_size):
 		for x in range(half_window_size, w-half_window_size):
 			block = get_block(im_left, y, x, half_window_size)
 			disparity[y, x] = distance_to_best_block(block, (y, x), im_right, search_size, half_window_size)
-			
-			cv2.imshow("Disparity Map", disparity)
-			cv2.waitKey(10)
-
+		cv2.imshow("Disparity Map", disparity)
+		cv2.waitKey(10)
 	cv2.waitKey(5000)
 
-	scale = 255.0 / search_size;
-	disparity = uint8(disparity * scale);
+	print("created disparity map!")
 
-	plt.imshow(disparity);
+	scale = 255.0 / search_size;
+	disparity = disparity * scale;
+
+	plt.imshow(disparity, cmap='Greys');
 	plt.show()
+
+	return disparity
 
 depth_map("./data/bowling_1.png", "./data/bowling_2.png", 7, 30)
 
