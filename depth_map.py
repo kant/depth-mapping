@@ -49,26 +49,25 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 	find the block with the minimum SAD (sum of absolute differences) to block 1 and retain its location coordinates
 	return the distance between block 1 and the best block.
 	'''
-	[block1_y, block1_x] = block1_coordinates
+	[y, block1_x] = block1_coordinates
 	
 	best_sad = float('inf')
-	best_y = block1_y
 	best_x = block1_x
 
-	for y in range(block1_y, block1_y + search_size):
-		for x in range(block1_x, block1_x + search_size):
+	x_start = max(0, block1_x - search_size)
 
-			block2 = get_block(img2, y, x, half_window_size)
+	for x in range(x_start, x_start + search_size):
 
-			if(block1.shape != block2.shape):
-				continue;
+		block2 = get_block(img2, y, x, half_window_size)
 
-			curr_sad = sad(block1, block2)
-			if(curr_sad < best_sad):
-				best_sad=curr_sad
-				best_y = y
-				best_x = x
-				best_block = block2
+		if(block1.shape != block2.shape):
+			continue;
+
+		curr_sad = sad(block1, block2)
+		if(curr_sad < best_sad):
+			best_sad=curr_sad
+			best_x = x
+			best_block = block2
 
 	'''
 	plt.imshow(block1)
@@ -76,40 +75,29 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 	plt.imshow(best_block)
 	plt.show()
 	'''
-	y_diff_sq = (block1_y - best_y) * (block1_y - best_y)
-	x_diff_sq = (block1_x - best_x) * (block1_x - best_x)
+	return abs(block1_x - best_x)
 
-	return math.sqrt(y_diff_sq + x_diff_sq)
-
-def depth_map(right, left, window_size, search_size):
+def depth_map(left, right, result_name, window_size, search_size):
 	im_left = cv2.resize(cv2.cvtColor(cv2.imread(left), cv2.COLOR_BGR2GRAY), (300, 244));
 	im_right = cv2.resize(cv2.cvtColor(cv2.imread(right), cv2.COLOR_BGR2GRAY), (300, 244));
 	[h,w] = im_left.shape;
 
-	disparity = np.zeros((h, w), dtype='uint8');
-	
+	disparity = np.zeros((h, w), dtype='float32');	
 	half_window_size = int(window_size/2);
-
+	scale = 1.0/search_size
 	print("creating disparity map....")
 	for y in range(half_window_size, h-half_window_size):
 		for x in range(half_window_size, w-half_window_size):
 			block = get_block(im_left, y, x, half_window_size)
-			disparity[y, x] = distance_to_best_block(block, (y, x), im_right, search_size, half_window_size)
-		cv2.imshow("Disparity Map", disparity)
-		cv2.waitKey(10)
-	cv2.waitKey(5000)
+			disparity[y, x] = scale * distance_to_best_block(block, (y, x), im_right, search_size, half_window_size)
 
 	print("created disparity map!")
 
-	scale = 255.0 / search_size;
-	disparity = disparity * scale;
-
-	plt.imshow(disparity, cmap='Greys');
-	plt.show()
+	cv2.imwrite("./disparity_maps/" + result_name, disparity * 255)
 
 	return disparity
 
-depth_map("./data/bowling_1.png", "./data/bowling_2.png", 7, 30)
+depth_map("./data/bowling_L.png", "./data/bowling_R.png", "bowling.png", 7, 30)
 
 
 
