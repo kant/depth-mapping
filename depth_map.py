@@ -48,13 +48,13 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 	best_y = block1_y
 	best_x = block1_x
 
-	for y in range(block1_y, block1_y + search_size):
-		for x in range(block1_x, block1_x + search_size):
+	for y in range(max(half_window_size, block1_y - search_size), min(img2.shape[0] - half_window_size, block1_y + search_size)):
+		for x in range(max(half_window_size, block1_x - search_size), min(img2.shape[0] - half_window_size, block1_x + search_size)):
 
 			block2 = get_block(img2, y, x, half_window_size)
 
-			if(block1.shape != block2.shape):
-				continue
+			#if(block1.shape != block2.shape):
+			#	continue
 
 			curr_sad = sad(block1, block2)
 			if(curr_sad < best_sad):
@@ -88,6 +88,7 @@ def depth_map(left, right, window_size, search_size):
 
 	scale = 255.0 / search_size;
 	disparity = uint8(disparity * scale);
+
 	plt.imshow(disparity);
 	plt.show()
 
