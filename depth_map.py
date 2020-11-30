@@ -15,7 +15,7 @@ def sad(img1, img2):
 		float -- sum of absolute differences between img1 and shifted img2
 	'''
 
-	return np.sum(np.abs(np.subtract(img1,img2, dtype=np.float)))
+	return np.sum(np.abs(np.subtract(img1, img2, dtype=np.float)))
 
 def get_block(img, y, x, half_window_size):
 	'''
@@ -54,14 +54,9 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 	best_sad = float('inf')
 	best_x = block1_x
 
-	x_start = max(0, block1_x - search_size)
-
-	for x in range(x_start, x_start + search_size):
+	for x in range(max(half_window_size, block1_x - search_size), min(img2.shape[1] - half_window_size, block1_x + search_size)):
 
 		block2 = get_block(img2, y, x, half_window_size)
-
-		if(block1.shape != block2.shape):
-			continue;
 
 		curr_sad = sad(block1, block2)
 		if(curr_sad < best_sad):
@@ -69,12 +64,6 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 			best_x = x
 			best_block = block2
 
-	'''
-	plt.imshow(block1)
-	plt.show()
-	plt.imshow(best_block)
-	plt.show()
-	'''
 	return abs(block1_x - best_x)
 
 def depth_map(left, right, result_name, window_size, search_size):
@@ -82,9 +71,9 @@ def depth_map(left, right, result_name, window_size, search_size):
 	im_right = cv2.resize(cv2.cvtColor(cv2.imread(right), cv2.COLOR_BGR2GRAY), (300, 244));
 	[h,w] = im_left.shape;
 
-	disparity = np.zeros((h, w), dtype='float32');	
+	disparity = np.zeros((h, w), dtype='uint8');	
 	half_window_size = int(window_size/2);
-	scale = 1.0/search_size
+	scale = 255.0/search_size
 	print("creating disparity map....")
 	for y in range(half_window_size, h-half_window_size):
 		for x in range(half_window_size, w-half_window_size):
@@ -93,7 +82,7 @@ def depth_map(left, right, result_name, window_size, search_size):
 
 	print("created disparity map!")
 
-	cv2.imwrite("./disparity_maps/" + result_name, disparity * 255)
+	cv2.imwrite("./disparity_maps/" + result_name, disparity)
 
 	return disparity
 
