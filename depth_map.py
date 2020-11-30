@@ -67,7 +67,7 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 
 	return math.sqrt(y_diff_sq + x_diff_sq)
 
-def stereo_match(left, right, window_size, search_size):
+def depth_map(left, right, window_size, search_size):
 	im_left = cv2.resize(cv2.cvtColor(cv2.imread(left), cv2.COLOR_BGR2GRAY), (300, 244));
 	im_right = cv2.resize(cv2.cvtColor(cv2.imread(right), cv2.COLOR_BGR2GRAY), (300, 244));
 	[h,w] = im_left.shape;
@@ -91,7 +91,7 @@ def stereo_match(left, right, window_size, search_size):
 	plt.imshow(disparity);
 	plt.show()
 
-stereo_match("./data/bowling_1.png", "./data/bowling_2.png", 7, 30)
+depth_map("./data/bowling_1.png", "./data/bowling_2.png", 7, 30)
 
 
 
