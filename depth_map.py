@@ -3,23 +3,6 @@ import cv2
 import matplotlib.pyplot as plt
 import math
 
-def shift_x(img, d):
-	'''
-	Parameters:
-		img-- 3 channel (row, col, colors) numpy array representing a picture
-		d-- number of columns (x coordinates) to shift
-			if d is positive -- shift right
-			if d is negative -- shift left
-	Returns:
-		img-- shifted 3 channel (row, col, colors) numpy array representing a picture
-
-	shifts the image by removing first d (if negative shift) columns or last d (if positive shift) columns
-	'''
-	if(d>0):
-		return img[:, :-d, :];
-	else:
-		return img[:, -d:, :];
-
 def sad(img1, img2):
 	'''
 	Parameters:
@@ -44,7 +27,7 @@ def get_block(img, y, x, half_window_size):
 
 	return img[row_start:row_end, col_start:col_end]
 
-def find_closest_matching_block(block1, block1_coordinates, img2, search_size, half_window_size):
+def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_window_size):
 	'''
 	Parameters:
 		block1-- 3 channel (row, col, colors) numpy array representing a block of a picture
@@ -96,7 +79,7 @@ def stereo_match(left, right, window_size, search_size):
 	for y in range(half_window_size, h-half_window_size):
 		for x in range(half_window_size, w-half_window_size):
 			block = get_block(im_left, y, x, half_window_size)
-			disparity[y, x] = find_closest_matching_block(block, (y, x), im_right, search_size, half_window_size)
+			disparity[y, x] = distance_to_best_block(block, (y, x), im_right, search_size, half_window_size)
 			
 			cv2.imshow("Disparity Map", disparity)
 			cv2.waitKey(10)
