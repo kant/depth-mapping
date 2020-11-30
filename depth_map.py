@@ -66,30 +66,24 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 
 	return block1_x - best_x
 
-def depth_map(left, right, result_name, window_size, search_size):
+def disparity_map(left, right, result_name, window_size, search_size):
+
+	# resized to 244 x 300 for speed as recommended in matlab stencil
 	im_left = cv2.resize(cv2.cvtColor(cv2.imread(left), cv2.COLOR_BGR2GRAY), (300, 244));
 	im_right = cv2.resize(cv2.cvtColor(cv2.imread(right), cv2.COLOR_BGR2GRAY), (300, 244));
 	[h,w] = im_left.shape;
 
 	disparity = np.zeros((h, w), dtype='uint8');	
 	half_window_size = int(window_size/2);
-	#scale = 255.0/float(search_size)
-	print("creating disparity map....")
+
 	for y in range(half_window_size, h-half_window_size):
 		for x in range(half_window_size, w-half_window_size):
 			block = get_block(im_left, y, x, half_window_size)
 			disparity[y, x] =  distance_to_best_block(block, (y, x), im_right, search_size, half_window_size)
-		#cv2.imshow("Output Image", disparity)
-		#cv2.waitKey(10)
-	print("created disparity map!")
-
-	print(disparity[0])
-
-	#cv2.imwrite("./disparity_maps/" + result_name, disparity)
 
 	return disparity
 
-depth_map("./data/bowling_L.png", "./data/bowling_R.png", "bowling.png", 10, 100)
+disparity_map("./data/bowling_L.png", "./data/bowling_R.png", "bowling.png", 10, 100)
 
 
 
