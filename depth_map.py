@@ -2,6 +2,9 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import math
+import open3d as o3d
+from open3d import JVisualizer
+
 
 def sad(img1, img2):
 	'''
@@ -16,6 +19,11 @@ def sad(img1, img2):
 	'''
 
 	return np.sum(np.abs(np.subtract(img1, img2, dtype=np.float)))
+
+def ssd(img1, img2):
+	diff = img1 - img2
+	return np.sum(diff * diff)
+
 
 def get_block(img, y, x, half_window_size):
 	'''
@@ -64,26 +72,44 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 			best_x = x
 			best_block = block2
 
-	return block1_x - best_x
+	return abs(block1_x - best_x)
 
-def disparity_map(left, right, result_name, window_size, search_size):
+def disparity_map(left, right, window_size, search_size, result):
+	'''
+	Parameters:
+		left-- name of left stereo pair image file
+		right-- name of right stereo pair image file
+		window_size-- half size of possible blocks
+		search_size-- maximum number of pixels away we can look for matching blocks in img2
+	Returns:
+		matrix containing displacement between xl and xr for a pixel (xl - xr)
+	'''
 
 	# resized to 244 x 300 for speed as recommended in matlab stencil
-	im_left = cv2.resize(cv2.cvtColor(cv2.imread(left), cv2.COLOR_BGR2GRAY), (300, 244));
-	im_right = cv2.resize(cv2.cvtColor(cv2.imread(right), cv2.COLOR_BGR2GRAY), (300, 244));
+	im_left = cv2.cvtColor(cv2.imread(left), cv2.COLOR_BGR2GRAY);
+	im_right = cv2.cvtColor(cv2.imread(right), cv2.COLOR_BGR2GRAY);
 	[h,w] = im_left.shape;
 
 	disparity = np.zeros((h, w), dtype='uint8');	
 	half_window_size = int(window_size/2);
 
+	scale = 255.0/search_size
+
+	print("creating disparity map...")
 	for y in range(half_window_size, h-half_window_size):
 		for x in range(half_window_size, w-half_window_size):
 			block = get_block(im_left, y, x, half_window_size)
-			disparity[y, x] =  distance_to_best_block(block, (y, x), im_right, search_size, half_window_size)
+			disparity[y, x] = scale * float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
+		cv2.imshow("Disparity Map", disparity)
+		cv2.waitKey(10)
+	cv2.imwrite("./disparity_maps/" + result, disparity)
+	print("created disparity map!")
 
 	return disparity
 
-disparity_map("./data/bowling_L.png", "./data/bowling_R.png", "bowling.png", 10, 100)
+
+disparity_map("./data/bowling_L.png", "./data/bowling_R.png", 15, 100, "bowling.png")
+
 
 
 
