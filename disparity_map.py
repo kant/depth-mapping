@@ -102,14 +102,12 @@ def disparity_map(left, right, window_size, search_size, result):
 			disparity[y, x] = scale * float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
 		cv2.imshow("Disparity Map", disparity)
 		cv2.waitKey(10)
-	cv2.imwrite("./disparity_maps/" + result, disparity)
 	print("created disparity map!")
+
+	cv2.imwrite("./disparity_maps/" + result, disparity)
 
 	return disparity
 
-
-disparity_map("./data/bowling_L.png", "./data/bowling_R.png", 15, 100, "bowling.png")
-
-
+disparity_map('./data/bowling_L.png', './data/bowling_R.png', 15, 100, "bowling.png")
 
 
