@@ -71,10 +71,11 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 			best_sad=curr_sad
 			best_x = x
 			best_block = block2
+	dist = abs(block1_x - best_x)
 
-	return abs(block1_x - best_x)
+	return max(1, dist)
 
-def disparity_map(left, right, window_size, search_size, result):
+def disparity_map(left, right, window_size, search_size):
 	'''
 	Parameters:
 		left-- name of left stereo pair image file
@@ -90,22 +91,16 @@ def disparity_map(left, right, window_size, search_size, result):
 	im_right = cv2.cvtColor(cv2.imread(right), cv2.COLOR_BGR2GRAY);
 	[h,w] = im_left.shape;
 
-	disparity = np.zeros((h, w), dtype='uint8');	
+	disparity = np.full((h, w), 256, dtype='uint16');	
 	half_window_size = int(window_size/2);
 
-	scale = 255.0/search_size
 
 	print("creating disparity map...")
 	for y in range(half_window_size, h-half_window_size):
 		for x in range(half_window_size, w-half_window_size):
 			block = get_block(im_left, y, x, half_window_size)
-			#disparity[y, x] = scale * float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
-			disparity[y, x] = float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
-		cv2.imshow("Disparity Map", scale * disparity)
-		cv2.waitKey(10)
+			disparity[y, x] = 588.503 * 160/float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
 	print("created disparity map!")
-
-	cv2.imwrite("./disparity_maps/" + result, scale * disparity)
 
 	return disparity
 
@@ -138,16 +133,20 @@ def display_depth_map(depth_map_file, color_img_file, fx, fy, cx, cy):
 	plt.show()
 
 	rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(img, depth)
-	print(np.asarray(rgbd))
-	o3d_pinhole = o3d.camera.PinholeCameraParameters()
-	[h, w] = cv2.cvtColor(cv2.imread(color_img_file), cv2.COLOR_BGR2GRAY).shape;
-	o3d_pinhole.intrinsic.set_intrinsics(h, w, fx, fy, cx, cy)
 
-	pcd_from_depth_map = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, o3d_pinhole.intrinsic)
+	o3d_pinhole = o3d.camera.PinholeCameraIntrinsic()
+	o3d_pinhole.set_intrinsics(300, 204, 588.503, 588.503, 119.102, 119.102)
+
+	pcd_from_depth_map = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, o3d_pinhole)
+	pcd_from_depth_map.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
 	visualizer = JVisualizer()
 	visualizer.add_geometry(pcd_from_depth_map)
 	visualizer.show()
 
+depth_map = disparity_map('./data/umbrella_L.png', './data/umbrella_R.png', 10, 15)
+print(np.max(depth_map))
+print(np.min(depth_map))
+print(depth_map[0,0])
+cv2.imwrite("./disparity_maps/umbrella.png", depth_map)
+display_depth_map("./disparity_maps/umbrella.png", './data/umbrella_L.png', 588.503, 588.503, 119.102, 119.102)
 
-disparity_map('./data/umbrella_L.png', './data/umbrella_R.png', 15, 100, "umbrella.png")
-display_depth_map("./disparity_maps/umbrella.png", './data/umbrella_L.png', 588.503, 588.503, 144.853, 100.683)
