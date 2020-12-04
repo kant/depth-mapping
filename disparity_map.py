@@ -94,12 +94,11 @@ def disparity_map(left, right, window_size, search_size):
 	disparity = np.full((h, w), 256, dtype='uint16');	
 	half_window_size = int(window_size/2);
 
-
 	print("creating disparity map...")
 	for y in range(half_window_size, h-half_window_size):
 		for x in range(half_window_size, w-half_window_size):
 			block = get_block(im_left, y, x, half_window_size)
-			disparity[y, x] = 588.503 * 160/float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
+			disparity[y, x] = 588.503 * 16.19/float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
 	print("created disparity map!")
 
 	return disparity
@@ -128,14 +127,11 @@ def display_depth_map(depth_map_file, color_img_file, fx, fy, cx, cy):
 	
 	img = o3d.io.read_image(color_img_file)
 	depth = o3d.io.read_image(depth_map_file)
-	plt.imshow(np.asarray(img))
-	plt.imshow(np.asarray(depth))
-	plt.show()
 
 	rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(img, depth)
 
 	o3d_pinhole = o3d.camera.PinholeCameraIntrinsic()
-	o3d_pinhole.set_intrinsics(300, 204, 588.503, 588.503, 119.102, 119.102)
+	o3d_pinhole.set_intrinsics(290, 194, 588.503, 588.503, 119.102, 119.102)
 
 	pcd_from_depth_map = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, o3d_pinhole)
 	pcd_from_depth_map.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
@@ -143,10 +139,10 @@ def display_depth_map(depth_map_file, color_img_file, fx, fy, cx, cy):
 	visualizer.add_geometry(pcd_from_depth_map)
 	visualizer.show()
 
-depth_map = disparity_map('./data/umbrella_L.png', './data/umbrella_R.png', 10, 15)
+depth_map = disparity_map('./data/2006/tsukuba_L.png', './data/2006/tsukuba_R.png', 10, 15)
 print(np.max(depth_map))
 print(np.min(depth_map))
 print(depth_map[0,0])
-cv2.imwrite("./disparity_maps/umbrella.png", depth_map)
-display_depth_map("./disparity_maps/umbrella.png", './data/umbrella_L.png', 588.503, 588.503, 119.102, 119.102)
+cv2.imwrite("./disparity_maps/2006/tsukuba.png", depth_map)
+display_depth_map("./disparity_maps/2006/tsukuba.png", './data/2006/tsukuba_L.png', 588.503, 588.503, 119.102, 119.102)
 
