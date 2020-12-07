@@ -75,15 +75,21 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 
 	return max(1, dist)
 
-def disparity_map(left, right, window_size, search_size):
+def depth_map(left, right, result, window_size, search_size, f, t):
 	'''
 	Parameters:
 		left-- name of left stereo pair image file
 		right-- name of right stereo pair image file
+		result-- file name results will be stored in
 		window_size-- half size of possible blocks
 		search_size-- maximum number of pixels away we can look for matching blocks in img2
+		f-- focal length (scaled if image was resized)
+		t-- baseline (scaled if image was resized)
 	Returns:
-		matrix containing displacement between xl and xr for a pixel (xl - xr)
+		tuple of--
+			1) matrix containing displacement between xl and xr for a pixel (xl - xr)
+			2) width of depth map + rgb image for point cloud
+			3) height of depth map + rgb image for point cloud        
 	'''
 
 	# resized to 244 x 300 for speed as recommended in matlab stencil
@@ -91,19 +97,22 @@ def disparity_map(left, right, window_size, search_size):
 	im_right = cv2.cvtColor(cv2.imread(right), cv2.COLOR_BGR2GRAY);
 	[h,w] = im_left.shape;
 
-	disparity = np.full((h, w), 256, dtype='uint16');	
+	depth = np.full((h, w), 256, dtype='uint16');	
 	half_window_size = int(window_size/2);
 
 	print("creating disparity map...")
 	for y in range(half_window_size, h-half_window_size):
 		for x in range(half_window_size, w-half_window_size):
 			block = get_block(im_left, y, x, half_window_size)
-			disparity[y, x] = 588.503 * 16.19/float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
+			depth[y, x] = f * t/float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
 	print("created disparity map!")
 
-	return disparity
+	cv2.imwrite("./point_cloud_rgb_data/" + result, im_left[half_window_size:h-half_window_size, half_window_size:w-half_window_size])
+	cv2.imwrite("./disparity_maps/" + result, depth[half_window_size:h-half_window_size, half_window_size:w-half_window_size])
 
-def create_depth_map(disparity_matrix, f, t):
+	return (depth[half_window_size:h-half_window_size, half_window_size:w-half_window_size], w - (2 * half_window_size), h - (2 * half_window_size))
+
+def create_depth_map(disparity_matrix, f, t, scale):
 	'''
 	Parameters:
 		disparity_matrix-- matrix containing displacement between xl and xr for a pixel (xl - xr)
@@ -113,15 +122,23 @@ def create_depth_map(disparity_matrix, f, t):
 	Returns:
 		depth map in mm	
 	'''
-	return (f * t) / disparity_matrix
+	return ((f/scale) * (t/scale)) / disparity_matrix
 
-def display_depth_map(depth_map_file, color_img_file, fx, fy, cx, cy):
+#perhaps get fourier decomposition of images
+#look at all three channels seperately after converting to LAB space
+#--> three depth proposal, look for one to select/combine from
+# also perform stereo matching on the edge image 
+# --> rgb est, and edge estimate, and assign a weight to each
+#median works best around edges
+#smooth--> mean works better
+#convert into a mesh surface-- meshlab, poisson reconstruction
+def display_depth_map(depth_map_file, color_img_file, w, h, fx, fy, cx, cy):
 	'''
 	Parameters:
-		fx-- focal length in x dir
-		fy-- focal length in y dir
-		cx-- x axis principle point
-		cy-- y axis principle point
+		fx-- focal length in x dir (scaled if resized)
+		fy-- focal length in y dir (scaled if resized)
+		cx-- x axis principle point (scaled if resized)
+		cy-- y axis principle point (scaled if resized)
 	'''
 
 	
@@ -131,7 +148,7 @@ def display_depth_map(depth_map_file, color_img_file, fx, fy, cx, cy):
 	rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(img, depth)
 
 	o3d_pinhole = o3d.camera.PinholeCameraIntrinsic()
-	o3d_pinhole.set_intrinsics(290, 194, 588.503, 588.503, 119.102, 119.102)
+	o3d_pinhole.set_intrinsics(w, h, fx, fy, cx, cy)
 
 	pcd_from_depth_map = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, o3d_pinhole)
 	pcd_from_depth_map.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
@@ -139,10 +156,5 @@ def display_depth_map(depth_map_file, color_img_file, fx, fy, cx, cy):
 	visualizer.add_geometry(pcd_from_depth_map)
 	visualizer.show()
 
-depth_map = disparity_map('./data/2006/tsukuba_L.png', './data/2006/tsukuba_R.png', 10, 15)
-print(np.max(depth_map))
-print(np.min(depth_map))
-print(depth_map[0,0])
-cv2.imwrite("./disparity_maps/2006/tsukuba.png", depth_map)
-display_depth_map("./disparity_maps/2006/tsukuba.png", './data/2006/tsukuba_L.png', 588.503, 588.503, 119.102, 119.102)
-
+depth_map_data = depth_map('./data/2006/tsukuba_L.png', './data/2006/tsukuba_R.png', "2006/tsukuba.png", 10, 15, 588.503, 16.19)
+display_depth_map("./disparity_maps/2006/tsukuba.png", './point_cloud_rgb_data/2006/tsukuba.png', depth_map_data[1], depth_map_data[2], 588.503, 588.503, 119.102, 119.102)
