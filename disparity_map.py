@@ -75,7 +75,7 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 
 	return max(1, dist)
 
-def depth_map(left, right, result, window_size, search_size, f, t):
+def depth_map(left, right, result, window_size, search_size, f, t, is_file = True):
 	'''
 	Parameters:
 		left-- name of left stereo pair image file
@@ -93,8 +93,13 @@ def depth_map(left, right, result, window_size, search_size, f, t):
 	'''
 
 	# resized to 244 x 300 for speed as recommended in matlab stencil
-	im_left = cv2.cvtColor(cv2.imread(left), cv2.COLOR_BGR2GRAY);
-	im_right = cv2.cvtColor(cv2.imread(right), cv2.COLOR_BGR2GRAY);
+	if(is_file == True):
+		im_left = cv2.cvtColor(cv2.imread(left), cv2.COLOR_BGR2GRAY);
+		im_right = cv2.cvtColor(cv2.imread(right), cv2.COLOR_BGR2GRAY);
+	else:
+		im_left = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY);
+		im_right = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY);
+
 	[h,w] = im_left.shape;
 
 	depth = np.full((h, w), 256, dtype='uint16');	
@@ -157,4 +162,4 @@ def display_depth_map(depth_map_file, color_img_file, w, h, fx, fy, cx, cy):
 	visualizer.show()
 
 depth_map_data = depth_map('./data/2006/tsukuba_L.png', './data/2006/tsukuba_R.png', "2006/tsukuba.png", 10, 15, 588.503, 16.19)
-display_depth_map("./disparity_maps/2006/tsukuba.png", './point_cloud_rgb_data/2006/tsukuba.png', depth_map_data[1], depth_map_data[2], 588.503, 588.503, 119.102, 119.102)
+#display_depth_map("./disparity_maps/2006/tsukuba.png", './point_cloud_rgb_data/2006/tsukuba.png', depth_map_data[1], depth_map_data[2], 588.503, 588.503, 119.102, 119.102)
