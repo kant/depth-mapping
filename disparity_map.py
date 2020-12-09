@@ -102,18 +102,24 @@ def depth_map(left, right, result, window_size, search_size, f, t, is_file = Tru
 
 	[h,w] = im_left.shape;
 
-	depth = np.full((h, w), 256, dtype='uint16');	
+	depth = np.full((h, w), 256, dtype='uint16');
+	
+	disparity = np.zeros((h, w), 'uint8');
+	scale = 255/search_size
+
 	half_window_size = int(window_size/2);
 
 	print("creating disparity map...")
 	for y in range(half_window_size, h-half_window_size):
 		for x in range(half_window_size, w-half_window_size):
 			block = get_block(im_left, y, x, half_window_size)
+			disparity[y, x] = scale = (255 / search_size) * float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
 			depth[y, x] = f * t/float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
 	print("created disparity map!")
 
 	cv2.imwrite("./point_cloud_rgb_data/" + result, im_left[half_window_size:h-half_window_size, half_window_size:w-half_window_size])
 	cv2.imwrite("./disparity_maps/" + result, depth[half_window_size:h-half_window_size, half_window_size:w-half_window_size])
+	cv2.imwrite("./disparity_maps/visible/" + result, disparity[half_window_size:h-half_window_size, half_window_size:w-half_window_size])
 
 	return (depth[half_window_size:h-half_window_size, half_window_size:w-half_window_size], w - (2 * half_window_size), h - (2 * half_window_size))
 
@@ -161,5 +167,5 @@ def display_depth_map(depth_map_file, color_img_file, w, h, fx, fy, cx, cy):
 	visualizer.add_geometry(pcd_from_depth_map)
 	visualizer.show()
 
-depth_map_data = depth_map('./data/2006/tsukuba_L.png', './data/2006/tsukuba_R.png', "2006/tsukuba.png", 10, 15, 588.503, 16.19)
+depth_map_data = depth_map('./data/2006/bowling_L.png', './data/2006/bowling_R.png', "2006/bowling.png", 15, 30, 588.503, 16.19)
 #display_depth_map("./disparity_maps/2006/tsukuba.png", './point_cloud_rgb_data/2006/tsukuba.png', depth_map_data[1], depth_map_data[2], 588.503, 588.503, 119.102, 119.102)

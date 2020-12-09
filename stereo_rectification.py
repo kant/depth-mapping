@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-import disparity_map.py
+
 I1 = cv2.imread('./data/myL.jpeg');
 I2 = cv2.imread('./data/myR.jpeg');
 
@@ -56,5 +56,7 @@ _, H1, H2 = cv2.stereoRectifyUncalibrated(np.float32(inlier_kp1), np.float32(inl
 stereo_L = cv2.warpPerspective(I1, H1, I1gray.shape[::-1])
 stereo_R = cv2.warpPerspective(I2, H2, I2gray.shape[::-1])
 
-depth_map(stereo_L, stereo_R, "mine.png", 10, 15, 588.503, 16.19)
-display_depth_map("./disparity_maps/2006/tsukuba.png", './point_cloud_rgb_data/2006/tsukuba.png', depth_map_data[1], depth_map_data[2], 588.503, 588.503, 119.102, 119.102)
+plt.imshow(stereo_L)
+plt.show()
+plt.imshow(stereo_R)
+plt.show()
