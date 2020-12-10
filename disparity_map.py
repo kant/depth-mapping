@@ -4,13 +4,23 @@ import matplotlib.pyplot as plt
 import math
 import open3d as o3d
 from open3d import JVisualizer
+from utils import get_block
+from enum import Enum
+from clean_up_disparity import filter_map
+ColorSpace = 'GREY, BGR, R, G, B, LAB, L, YUV, Y'
 
+def crop(img, window_size):
+	shape = img.shape
+	h = img.shape[0]
+	w = img.shape[1]
+	half_window_size = int(window_size/2)
+	return img[half_window_size:h-half_window_size, half_window_size:w-half_window_size]
 
 def sad(img1, img2):
 	'''
 	Parameters:
-		img1-- 3 channel (row, col, colors) numpy array representing a picture
-		img2-- 3 channel (row, col, colors) numpy array representing a picture
+		img1-- numpy array representing a picture
+		img2-- numpy array representing a picture
 		d-- number of columns (x coordinates) to shift img2
 			if d is positive -- shift right
 			if d is negative -- shift left
@@ -19,28 +29,6 @@ def sad(img1, img2):
 	'''
 
 	return np.sum(np.abs(np.subtract(img1, img2, dtype=np.float)))
-
-def ssd(img1, img2):
-	diff = img1 - img2
-	return np.sum(diff * diff)
-
-
-def get_block(img, y, x, half_window_size):
-	'''
-	Parameters:
-		img1- 3 channel (row, col, colors) numpy array representing a picture
-		x and y- coordinates of center pixel or block
-		half_window_size-- half the size of the desired block
-	Returns:
-		get_block -- gets the block of (half_window_size * 2 + 1) centered at y, x
-	'''
-	row_start = y - half_window_size
-	row_end = y + half_window_size + 1
-
-	col_start = x - half_window_size
-	col_end = x + half_window_size + 1
-
-	return np.array(img[row_start:row_end, col_start:col_end])
 
 def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_window_size):
 	'''
@@ -73,57 +61,46 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 			best_block = block2
 	dist = abs(block1_x - best_x)
 
-	return max(1, dist)
+	return dist
 
-def depth_map(left, right, result, window_size, search_size, f, t, is_file = True):
+def disparity_map(im_left, im_right, window_size, search_size):
 	'''
 	Parameters:
-		left-- name of left stereo pair image file
-		right-- name of right stereo pair image file
-		result-- file name results will be stored in
+		left-- left stereo pair image file (numpy array)
+		right-- right stereo pair image file (numpy array)
 		window_size-- half size of possible blocks
 		search_size-- maximum number of pixels away we can look for matching blocks in img2
-		f-- focal length (scaled if image was resized)
-		t-- baseline (scaled if image was resized)
+
 	Returns:
-		tuple of--
-			1) matrix containing displacement between xl and xr for a pixel (xl - xr)
-			2) width of depth map + rgb image for point cloud
-			3) height of depth map + rgb image for point cloud        
+		matrix containing displacement between xl and xr for a pixel (xl - xr)
 	'''
 
-	# resized to 244 x 300 for speed as recommended in matlab stencil
-	if(is_file == True):
-		im_left = cv2.cvtColor(cv2.imread(left), cv2.COLOR_BGR2GRAY);
-		im_right = cv2.cvtColor(cv2.imread(right), cv2.COLOR_BGR2GRAY);
-	else:
-		im_left = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY);
-		im_right = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY);
+	shape = im_left.shape
 
-	[h,w] = im_left.shape;
-
-	depth = np.full((h, w), 256, dtype='uint16');
+	h = shape[0]
+	w = shape[1]
 	
 	disparity = np.zeros((h, w), 'uint8');
-	scale = 255/search_size
-
 	half_window_size = int(window_size/2);
 
 	print("creating disparity map...")
 	for y in range(half_window_size, h-half_window_size):
 		for x in range(half_window_size, w-half_window_size):
 			block = get_block(im_left, y, x, half_window_size)
-			disparity[y, x] = scale = (255 / search_size) * float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
-			depth[y, x] = f * t/float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
+			distance = float(distance_to_best_block(block, (y, x), im_right, search_size, half_window_size))
+			disparity[y, x] = distance
 	print("created disparity map!")
 
-	cv2.imwrite("./point_cloud_rgb_data/" + result, im_left[half_window_size:h-half_window_size, half_window_size:w-half_window_size])
-	cv2.imwrite("./disparity_maps/" + result, depth[half_window_size:h-half_window_size, half_window_size:w-half_window_size])
-	cv2.imwrite("./disparity_maps/visible/" + result, disparity[half_window_size:h-half_window_size, half_window_size:w-half_window_size])
+	return crop(disparity, window_size = window_size)
 
-	return (depth[half_window_size:h-half_window_size, half_window_size:w-half_window_size], w - (2 * half_window_size), h - (2 * half_window_size))
+def disparity_to_visible_disparity_map(disparity_matrix, search_size):
+	disparity_matrix = disparity_matrix.astype(np.float64) / search_size
+	disparity_matrix = 255 * disparity_matrix # Now scale by 255
+	disparity_matrix = disparity_matrix.astype(np.uint8)
+	return disparity_matrix
 
-def create_depth_map(disparity_matrix, f, t, scale):
+
+def disparity_to_depth_map(disparity_matrix, f, t, scale):
 	'''
 	Parameters:
 		disparity_matrix-- matrix containing displacement between xl and xr for a pixel (xl - xr)
@@ -133,7 +110,13 @@ def create_depth_map(disparity_matrix, f, t, scale):
 	Returns:
 		depth map in mm	
 	'''
-	return ((f/scale) * (t/scale)) / disparity_matrix
+
+	# NOTE-- any time a uint16 numpy array stores a value before 255 it degrates to a uint8
+	# MUST DO THE BELOW STEP (np.full...) first
+	disparity_matrix = disparity_matrix.astype(np.float64)
+	disparity_matrix = (f/scale) * (t/scale) / disparity_matrix
+	disparity_matrix = disparity_matrix.astype(np.uint16)
+	return disparity_matrix
 
 #perhaps get fourier decomposition of images
 #look at all three channels seperately after converting to LAB space
@@ -143,7 +126,7 @@ def create_depth_map(disparity_matrix, f, t, scale):
 #median works best around edges
 #smooth--> mean works better
 #convert into a mesh surface-- meshlab, poisson reconstruction
-def display_depth_map(depth_map_file, color_img_file, w, h, fx, fy, cx, cy):
+def display_depth_map(depth_map, color_img, fx, fy, cx, cy, scale):
 	'''
 	Parameters:
 		fx-- focal length in x dir (scaled if resized)
@@ -152,9 +135,17 @@ def display_depth_map(depth_map_file, color_img_file, w, h, fx, fy, cx, cy):
 		cy-- y axis principle point (scaled if resized)
 	'''
 
+	fx = fx/scale
+	fy = fy/scale
+	cx = cx/scale
+	cy = cy/scale
+
+	shape = color_img.shape;
+	h = shape[0]
+	w = shape[1]
 	
-	img = o3d.io.read_image(color_img_file)
-	depth = o3d.io.read_image(depth_map_file)
+	img = o3d.geometry.Image(color_img)
+	depth = o3d.geometry.Image(depth_map)
 
 	rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(img, depth)
 
@@ -167,5 +158,176 @@ def display_depth_map(depth_map_file, color_img_file, w, h, fx, fy, cx, cy):
 	visualizer.add_geometry(pcd_from_depth_map)
 	visualizer.show()
 
-depth_map_data = depth_map('./data/2006/bowling_L.png', './data/2006/bowling_R.png', "2006/bowling.png", 15, 30, 588.503, 16.19)
-#display_depth_map("./disparity_maps/2006/tsukuba.png", './point_cloud_rgb_data/2006/tsukuba.png', depth_map_data[1], depth_map_data[2], 588.503, 588.503, 119.102, 119.102)
+class ColorSpace(Enum):
+	GREY = 1,
+	BGR=2,
+	R=3,
+	G=4,
+	B=5,
+	LAB=6,
+	L=7,
+	YUV=8,
+	Y=9,
+	RGB=10
+
+def get_data_in_color_space(file, color_space):
+
+	im_bgr = cv2.imread(file)
+	im_lab = cv2.cvtColor(im_bgr, cv2.COLOR_BGR2LAB)
+	im_yuv = cv2.cvtColor(im_bgr, cv2.COLOR_BGR2YUV)
+
+	if(color_space == ColorSpace.GREY):
+		print("fetching " + file + " in GREY")
+		return cv2.cvtColor(im_bgr, cv2.COLOR_BGR2GRAY)
+	elif(color_space == ColorSpace.R):
+		print("fetching " + file + " in R")
+		return im_bgr[:,:,2]
+	elif(color_space == ColorSpace.G):
+		print("fetching " + file + " in G")
+		return im_bgr[:,:,1]
+	elif(color_space == ColorSpace.B):
+		print("fetching " + file + " in B")
+		return im_bgr[:,:,0]
+	elif(color_space == ColorSpace.LAB):
+		print("fetching " + file + " in LAB")
+		return im_lab
+	elif(color_space == ColorSpace.L):
+		print("fetching " + file + " in L")
+		return im_lab[:,:,0]
+	elif(color_space == ColorSpace.YUV):
+		print("fetching " + file + " in YUV")
+		return im_yuv
+	elif(color_space == ColorSpace.Y):
+		print("fetching " + file + " in Y")
+		return im_yuv[:,:,0]
+	elif(color_space == ColorSpace.RGB):
+		print("fetching " + file + " in RGB")
+		return cv2.cvtColor(im_bgr, cv2.COLOR_BGR2RGB)
+	else:
+		print("fetching " + file + " in BGR")
+		return im_bgr
+
+def average_disparity_maps(list_of_maps):
+	disparity = np.zeros(list_of_maps[0].shape, 'uint8');
+	print(disparity.shape)
+	for i in range(list_of_maps[0].shape[0]):
+		for j in range(list_of_maps[0].shape[1]):
+			disparity_ij = []
+			for disparity_matrix in list_of_maps:
+				disparity_ij.append(disparity_matrix[i, j])
+			disparity[i, j] = sum(disparity_ij)/len(disparity_ij)
+	print(disparity)
+	return disparity
+
+window_size = 15
+search_size = 100
+
+left = get_data_in_color_space('./data/2006/bowling_L.png', ColorSpace.YUV)
+right = get_data_in_color_space('./data/2006/bowling_R.png', ColorSpace.YUV)
+
+yuv_disparity_map = disparity_map(left, right, window_size, search_size)
+
+plt.imshow(yuv_disparity_map, cmap='Greys_r')
+plt.show()
+
+left = get_data_in_color_space('./data/2006/bowling_L.png', ColorSpace.GREY)
+right = get_data_in_color_space('./data/2006/bowling_R.png', ColorSpace.GREY)
+
+grey_disparity_map = disparity_map(left, right, window_size, search_size)
+
+plt.imshow(grey_disparity_map, cmap='Greys_r')
+plt.show()
+
+left = get_data_in_color_space('./data/2006/bowling_L.png', ColorSpace.LAB)
+right = get_data_in_color_space('./data/2006/bowling_R.png', ColorSpace.LAB)
+
+lab_disparity_map = disparity_map(left, right, window_size, search_size)
+
+plt.imshow(lab_disparity_map, cmap='Greys_r')
+plt.show()
+
+left = get_data_in_color_space('./data/2006/bowling_L.png', ColorSpace.BGR)
+right = get_data_in_color_space('./data/2006/bowling_R.png', ColorSpace.BGR)
+
+bgr_disparity_map = disparity_map(left, right, window_size, search_size)
+
+plt.imshow(bgr_disparity_map, cmap='Greys_r')
+plt.show()
+
+left = get_data_in_color_space('./data/2006/bowling_L.png', ColorSpace.B)
+right = get_data_in_color_space('./data/2006/bowling_R.png', ColorSpace.B)
+
+b_disparity_map = disparity_map(left, right, window_size, search_size)
+
+plt.imshow(b_disparity_map, cmap='Greys_r')
+plt.show()
+
+left = get_data_in_color_space('./data/2006/bowling_L.png', ColorSpace.G)
+right = get_data_in_color_space('./data/2006/bowling_R.png', ColorSpace.G)
+
+g_disparity_map = disparity_map(left, right, window_size, search_size)
+
+plt.imshow(g_disparity_map, cmap='Greys_r')
+plt.show()
+
+left = get_data_in_color_space('./data/2006/bowling_L.png', ColorSpace.R)
+right = get_data_in_color_space('./data/2006/bowling_R.png', ColorSpace.R)
+
+r_disparity_map = disparity_map(left, right, window_size, search_size)
+
+plt.imshow(r_disparity_map, cmap='Greys_r')
+plt.show()
+
+left = get_data_in_color_space('./data/2006/bowling_L.png', ColorSpace.L)
+right = get_data_in_color_space('./data/2006/bowling_R.png', ColorSpace.L)
+
+l_disparity_map = disparity_map(left, right, window_size, search_size)
+
+plt.imshow(l_disparity_map, cmap='Greys_r')
+plt.show()
+
+left = get_data_in_color_space('./data/2006/bowling_L.png', ColorSpace.Y)
+right = get_data_in_color_space('./data/2006/bowling_R.png', ColorSpace.Y)
+
+y_disparity_map = disparity_map(left, right, window_size, search_size)
+
+plt.imshow(y_disparity_map, cmap='Greys_r')
+plt.show()
+
+left = get_data_in_color_space('./data/2006/bowling_L.png', ColorSpace.RGB)
+right = get_data_in_color_space('./data/2006/bowling_R.png', ColorSpace.RGB)
+
+rgb_disparity_map = disparity_map(left, right, window_size, search_size)
+
+plt.imshow(rgb_disparity_map, cmap='Greys_r')
+plt.show()
+
+final_disparity_map = average_disparity_maps([yuv_disparity_map, grey_disparity_map, lab_disparity_map, bgr_disparity_map, b_disparity_map, g_disparity_map, r_disparity_map, l_disparity_map, y_disparity_map, rgb_disparity_map])
+
+visible_disparity_map = disparity_to_visible_disparity_map(final_disparity_map, search_size)
+
+print("displaying average disparity map...")
+plt.imshow(visible_disparity_map, cmap='Greys_r')
+plt.show()
+
+left_gray = crop(get_data_in_color_space('./data/2006/bowling_L.png', ColorSpace.GREY), window_size = window_size)
+
+filtered_disparity_map = filter_map(final_disparity_map, visible_disparity_map, left_gray, window_size);
+visible_filtered_disparity_map = disparity_to_visible_disparity_map(filtered_disparity_map, search_size)
+
+print("displaying filtered yuv disparity map...")
+plt.imshow(visible_filtered_disparity_map, cmap='Greys_r')
+plt.show()
+
+depth_map = disparity_to_depth_map(filtered_disparity_map, f=3740, t=160, scale=9.88)
+print("created depth map with range: ")
+print(np.min(depth_map, axis=None))
+print(np.max(depth_map, axis=None))
+
+left_rgb = crop(get_data_in_color_space('./data/2006/bowling_L.png', ColorSpace.RGB), window_size = window_size)
+
+print("displaying depth map as point cloud!")
+display_depth_map(depth_map, left_rgb, fx = 5814.40964, fy = 5814.40964, cx = 1176.72776, cy = 1176.72776, scale = 9.88)
+
+
+

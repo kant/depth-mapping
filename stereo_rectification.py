@@ -12,7 +12,7 @@ orb = cv2.ORB_create()
 kp1, des1 = orb.detectAndCompute(I1gray, None)
 kp2, des2 = orb.detectAndCompute(I2gray, None)
 
-bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+bf = cv2.BFMatcher(cv2.NORM_HAMMING, True)
 matches = bf.match(des1, des2)
 matches = sorted(matches, key = lambda x:x.distance)[:30]
 
@@ -53,8 +53,49 @@ thresh = 0
 
 _, H1, H2 = cv2.stereoRectifyUncalibrated(np.float32(inlier_kp1), np.float32(inlier_kp2), F, I1gray.shape[::-1], 1)
 
-stereo_L = cv2.warpPerspective(I1, H1, I1gray.shape[::-1])
-stereo_R = cv2.warpPerspective(I2, H2, I2gray.shape[::-1])
+I1_rect = np.float32([[[0, 0], [I1.shape[1], 0], [I1.shape[1], I1.shape[0]], [0, I1.shape[0]]]])
+warped_I1_rect = cv2.perspectiveTransform(I1_rect, H1)
+
+I2_rect = np.float32([[[0, 0], [I2.shape[1], 0], [I2.shape[1], I2.shape[0]], [0, I2.shape[0]]]])
+warped_I2_rect = cv2.perspectiveTransform(I2_rect, H2)
+
+min_x_I1= min(warped_I1_rect[0][0][0], warped_I1_rect[0][1][0], warped_I1_rect[0][2][0], warped_I1_rect[0][3][0])
+min_x_I2 =min(warped_I2_rect[0][0][0], warped_I2_rect[0][1][0], warped_I2_rect[0][2][0], warped_I2_rect[0][3][0])
+
+min_y_I1 = min(warped_I1_rect[0][0][1], warped_I1_rect[0][1][1], warped_I1_rect[0][2][1], warped_I1_rect[0][3][1])
+min_y_I2 = min(warped_I2_rect[0][0][1], warped_I2_rect[0][1][1], warped_I2_rect[0][2][1], warped_I2_rect[0][3][1])
+
+max_x_I1 = max(warped_I1_rect[0][0][0], warped_I1_rect[0][1][0], warped_I1_rect[0][2][0], warped_I1_rect[0][3][0])
+max_x_I2 = max(warped_I2_rect[0][0][0], warped_I2_rect[0][1][0], warped_I2_rect[0][2][0], warped_I2_rect[0][3][0])
+
+max_y_I1 = max(warped_I1_rect[0][0][1], warped_I1_rect[0][1][1], warped_I1_rect[0][2][1], warped_I1_rect[0][3][1])
+max_y_I2 = max(warped_I2_rect[0][0][1], warped_I2_rect[0][1][1], warped_I2_rect[0][2][1], warped_I2_rect[0][3][1])
+ 
+translation_xy_I1 = np.array([max(0, -min_x_I1), max(0, -min_y_I1)])
+translation_xy_I2 = np.array([max(0, -min_x_I2), max(0, -min_y_I2)])
+
+W_I1 = (max_x_I1 + translation_xy_I1[0])
+H_I1 = (max_y_I1 + translation_xy_I1[1])
+
+W_I2 = (max_x_I2 + translation_xy_I2[0])
+H_I2 = (max_y_I2 + translation_xy_I2[1])
+
+transform_T = np.eye(3)
+transform_T[0,2] = translation_xy_I1[0]
+transform_T[1,2] = translation_xy_I1[1]
+transform_T = transform_T[:2, :]
+
+H1 = np.concatenate((transform_T, [[0, 0, 1]]), axis=0) @ H1
+
+transform_T = np.eye(3)
+transform_T[0,2] = translation_xy_I2[0]
+transform_T[1,2] = translation_xy_I2[1]
+transform_T = transform_T[:2, :]
+
+H2 = np.concatenate((transform_T, [[0, 0, 1]]), axis=0) @ H2
+
+stereo_L = cv2.warpPerspective(I1, H1, (int(W_I1),int(H_I1)))
+stereo_R = cv2.warpPerspective(I2, H2, (int(W_I2),int(H_I2)))
 
 plt.imshow(stereo_L)
 plt.show()
