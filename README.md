@@ -70,3 +70,4 @@ Some notes:
 
 ![](https://github.com/cranberrymuffin/depth-mapping/blob/main/results/large_bowling.gif)
 ![](https://github.com/cranberrymuffin/depth-mapping/blob/main/results/tsukuba_large.gif)
+![](https://github.com/cranberrymuffin/depth-mapping/blob/main/results/large_midd.gif)
