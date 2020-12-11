@@ -227,7 +227,7 @@ def average_disparity_maps(list_of_maps):
 
 
 ###### BELOW THIS POINT #####
-#### code to actually create disparity maps ####
+#### code to actually call methods to create disparity maps ####
 
 window_size = 15
 search_size = 100
