@@ -65,3 +65,7 @@ Some notes:
 
 1. If you see any errors related to Open3D in regards to creating an RGBD image or Point Cloud, check your version and use the line of code required for your installed version.
 2. `o3d.visualization.draw_geometries` does not work on Mac, I have only confirmed it works on Debian Linux
+
+## Results:
+
+![](https://github.com/cranberrymuffin/depth-mapping/blob/main/results/large_bowling.gif)
