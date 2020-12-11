@@ -72,4 +72,4 @@ Some notes:
 ![](https://github.com/cranberrymuffin/depth-mapping/blob/main/results/tsukuba_large.gif)
 ![](https://github.com/cranberrymuffin/depth-mapping/blob/main/results/large_midd.gif)
 ![](https://github.com/cranberrymuffin/depth-mapping/blob/main/results/large_lampshade.gif)
-![](https://github.com/cranberrymuffin/depth-mapping/blob/main/results/large_lampshade.gif)
+![](https://github.com/cranberrymuffin/depth-mapping/blob/main/results/large_flowerpots.gif)
