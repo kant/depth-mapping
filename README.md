@@ -24,6 +24,8 @@ matrix needed to bring images in positive xy space.
 
 ## Depth Map Creation
 
+This process can be found in `disparity_map.py`
+
 1. Use block matching to identify matching blocks in the stereo image pair and measure the distance between the center 'x' (columnwise) pixel in each. Store this value in your disparity map.
 To classify blocks as matching, use some distance metric like Sum of Absolute Diffences (see below)
 
@@ -38,11 +40,16 @@ where f is focal length and t is baseline (or distance between camera centers) t
 
 ## Post-processing: Filtering the depth map!
 
+This described process can be found in `clean_up_disparity.py`
+
 1. Stack the edges of your disparity map with the edges of an image in your stereo pair
 2. Traverse the edge image with varying window sizes
 3. At the largest window size containing no edges, store the median of the values in your depth map falling under this window in your filtered depth map
 
 ## 3D Point Clouds: Open3D
+
+This process can be found in `disparity_map.py`, specifically in the `display_depth_map` function.
+
 
 1. Create RGBD matrix with 1 of the 2 images forming your stereo pair and the depth map you have created
 
