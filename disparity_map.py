@@ -7,9 +7,15 @@ from open3d import JVisualizer
 from utils import get_block
 from enum import Enum
 from clean_up_disparity import filter_map
-ColorSpace = 'GREY, BGR, R, G, B, LAB, L, YUV, Y'
 
 def crop(img, window_size):
+	'''
+	Parameters:
+		img-- numpy array representing a picture
+		window_size-- window size used during depth map generation
+	Returns:
+		img cropped removing window_size/2 pixels from each side of the image
+	'''
 	shape = img.shape
 	h = img.shape[0]
 	w = img.shape[1]
@@ -21,9 +27,6 @@ def sad(img1, img2):
 	Parameters:
 		img1-- numpy array representing a picture
 		img2-- numpy array representing a picture
-		d-- number of columns (x coordinates) to shift img2
-			if d is positive -- shift right
-			if d is negative -- shift left
 	Returns:
 		float -- sum of absolute differences between img1 and shifted img2
 	'''
@@ -37,7 +40,7 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 		block1_coordinates-- tuple(r, w) or (y, x) representing location of center of block1 (used to calculate distance)
 		img2-- 3 channel (row, col, colors) numpy array representing a picture
 		search_size-- maximum number of pixels away we can look for matching blocks in img2
-		window_size-- half size of possible blocks
+		half_window_size-- half size of possible blocks
 	Returns:
 		float distance between center of block1 and the best matching block within search_size
 
@@ -66,8 +69,8 @@ def distance_to_best_block(block1, block1_coordinates, img2, search_size, half_w
 def disparity_map(im_left, im_right, window_size, search_size):
 	'''
 	Parameters:
-		left-- left stereo pair image file (numpy array)
-		right-- right stereo pair image file (numpy array)
+		im_left-- left stereo pair image file (numpy array)
+		im_right-- right stereo pair image file (numpy array)
 		window_size-- half size of possible blocks
 		search_size-- maximum number of pixels away we can look for matching blocks in img2
 
@@ -94,6 +97,13 @@ def disparity_map(im_left, im_right, window_size, search_size):
 	return crop(disparity, window_size = window_size)
 
 def disparity_to_visible_disparity_map(disparity_matrix, search_size):
+	'''
+	Parameters:
+		disparity_matrix-- matrix containing displacement between xl and xr for a pixel (xl - xr)
+		search_size-- maximum pixels away travelled when searching for best matching block
+	Returns:
+		depth map in mm	
+	'''
 	disparity_matrix = disparity_matrix.astype(np.float64) / search_size
 	disparity_matrix = 255 * disparity_matrix # Now scale by 255
 	disparity_matrix = disparity_matrix.astype(np.uint8)
@@ -106,26 +116,16 @@ def disparity_to_depth_map(disparity_matrix, f, t, scale):
 		disparity_matrix-- matrix containing displacement between xl and xr for a pixel (xl - xr)
 		f-- focal length in pixels
 		t-- baseline in mm
-	
+		scale-- amount origional image was scaled down, used to scale down f and t
 	Returns:
 		depth map in mm	
 	'''
 
-	# NOTE-- any time a uint16 numpy array stores a value before 255 it degrates to a uint8
-	# MUST DO THE BELOW STEP (np.full...) first
 	disparity_matrix = disparity_matrix.astype(np.float64)
 	disparity_matrix = (f/scale) * (t/scale) / disparity_matrix
 	disparity_matrix = disparity_matrix.astype(np.uint16)
 	return disparity_matrix
 
-#perhaps get fourier decomposition of images
-#look at all three channels seperately after converting to LAB space
-#--> three depth proposal, look for one to select/combine from
-# also perform stereo matching on the edge image 
-# --> rgb est, and edge estimate, and assign a weight to each
-#median works best around edges
-#smooth--> mean works better
-#convert into a mesh surface-- meshlab, poisson reconstruction
 def display_depth_map(depth_map, color_img, fx, fy, cx, cy, scale):
 	'''
 	Parameters:
@@ -133,6 +133,8 @@ def display_depth_map(depth_map, color_img, fx, fy, cx, cy, scale):
 		fy-- focal length in y dir (scaled if resized)
 		cx-- x axis principle point (scaled if resized)
 		cy-- y axis principle point (scaled if resized)
+
+	Displays an Open3D point cloud
 	'''
 
 	fx = fx/scale
@@ -144,8 +146,8 @@ def display_depth_map(depth_map, color_img, fx, fy, cx, cy, scale):
 	h = shape[0]
 	w = shape[1]
 	
-	img = o3d.geometry.Image(color_img)
-	depth = o3d.geometry.Image(depth_map)
+	img = o3d.geometry.Image(color_img.astype('uint8'))
+	depth = o3d.geometry.Image(depth_map.astype('uint16'))
 
 	rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(img, depth)
 
@@ -154,9 +156,7 @@ def display_depth_map(depth_map, color_img, fx, fy, cx, cy, scale):
 
 	pcd_from_depth_map = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, o3d_pinhole)
 	pcd_from_depth_map.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
-	visualizer = JVisualizer()
-	visualizer.add_geometry(pcd_from_depth_map)
-	visualizer.show()
+	o3d.visualization.draw_geometries([pcd])
 
 class ColorSpace(Enum):
 	GREY = 1,
@@ -171,7 +171,13 @@ class ColorSpace(Enum):
 	RGB=10
 
 def get_data_in_color_space(file, color_space):
-
+	'''
+	Parameters:
+		file-- file name of image to fetch pixel values for
+		color_space-- ColorSpace enum type representing color space to return img as
+	Returns:
+		numpy array representing image converted into color space defined
+	'''
 	im_bgr = cv2.imread(file)
 	im_lab = cv2.cvtColor(im_bgr, cv2.COLOR_BGR2LAB)
 	im_yuv = cv2.cvtColor(im_bgr, cv2.COLOR_BGR2YUV)
@@ -218,6 +224,10 @@ def average_disparity_maps(list_of_maps):
 			disparity[i, j] = sum(disparity_ij)/len(disparity_ij)
 	print(disparity)
 	return disparity
+
+
+###### BELOW THIS POINT #####
+#### code to actually create disparity maps ####
 
 window_size = 15
 search_size = 100
