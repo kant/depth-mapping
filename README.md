@@ -20,7 +20,7 @@ to identify [epipolar lines](https://en.wikipedia.org/wiki/Epipolar_geometry)
 matrix needed to bring images in positive xy space.
 4. Violá! Stereo Image Pair Accomplished
 
-*Note: this image pair may not be the best for 3D reconstruction and depth map creation.*
+*Note: this image pair may not be the best for 3D reconstruction and depth map creation, calibrated camera data like the Middlebury Stereo Dataset provides is much better for nicer 3D reconstruction results!*
 
 ## Depth Map Creation
 
