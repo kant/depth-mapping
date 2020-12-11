@@ -156,7 +156,7 @@ def display_depth_map(depth_map, color_img, fx, fy, cx, cy, scale):
 
 	pcd_from_depth_map = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, o3d_pinhole)
 	pcd_from_depth_map.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
-	o3d.visualization.draw_geometries([pcd])
+	o3d.visualization.draw_geometries([pcd_from_depth_map])
 
 class ColorSpace(Enum):
 	GREY = 1,

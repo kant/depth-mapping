@@ -28,8 +28,6 @@ for match in matches:
 	best_kp2.append(kp2[match.trainIdx].pt)
 	best_matches.append(match)
 
-print(best_kp1)
-print(best_kp2)
 best_kp1 = np.array(best_kp1)
 best_kp2 = np.array(best_kp2)
 best_matches = np.array(best_matches)
@@ -43,8 +41,6 @@ inlier_kp2 = best_kp2[inlier_mask == 1]
 
 inlier_matches = best_matches[inlier_mask==1]
 
-print(inlier_kp1)
-print(inlier_kp2)
 
 img3 = cv2.drawMatches(I1,kp1,I2,kp2, inlier_matches, flags=2, outImg = None)
 plt.imshow(img3),plt.show()
