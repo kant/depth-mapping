@@ -27,7 +27,7 @@ matrix needed to bring images in positive xy space.
 This process can be found in `disparity_map.py`
 
 1. Use block matching to identify matching blocks in the stereo image pair and measure the distance between the center 'x' (columnwise) pixel in each. Store this value in your disparity map.
-To classify blocks as matching, use some distance metric like Sum of Absolute Diffences (see below)
+To classify blocks as matching, use some distance metric like Sum of Absolute Differences (see below)
 
 <a href="https://www.codecogs.com/eqnedit.php?latex=\mathrm{SSD}(I_1,I_2)&space;=&space;\sum_{x,y&space;\in&space;W}&space;(I_1(x,y)&space;-&space;I_2(x&plus;d,y)&space;)&space;^2" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\mathrm{SSD}(I_1,I_2)&space;=&space;\sum_{x,y&space;\in&space;W}&space;(I_1(x,y)&space;-&space;I_2(x&plus;d,y)&space;)&space;^2" title="\mathrm{SSD}(I_1,I_2) = \sum_{x,y \in W} (I_1(x,y) - I_2(x+d,y) ) ^2" /></a>
 
